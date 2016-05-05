@@ -7,23 +7,23 @@ import (
 
 func buy(orderType string, price int, qty int) {
 	order := Order{
-		Account: Account,
-		Venue: Venue,
-		Symbol: Symbol,
-		Price: price,
-		Qty: qty,
+		Account:   Cfg.Stockfighter.Account,
+		Venue:     Cfg.Stockfighter.Venue,
+		Symbol:    Cfg.Stockfighter.Symbol,
+		Price:     price,
+		Qty:       qty,
 		Direction: "buy",
 		OrderType: orderType,
 	}
 
-	uri := fmt.Sprintf("%s/venues/%s/stocks/%s/orders", BaseUrl, order.Venue, order.Symbol)
+	uri := fmt.Sprintf("%s/venues/%s/stocks/%s/orders", Cfg.Stockfighter.BaseUrl, order.Venue, order.Symbol)
 	req := goreq.Request{
 		Method: "POST",
-		Uri: uri,
-		Body: order,
+		Uri:    uri,
+		Body:   order,
 	}
 
-	req.AddHeader("X-Starfighter-Authorization", ApiKey)
+	req.AddHeader("X-Starfighter-Authorization", Cfg.Stockfighter.ApiKey)
 	res, err := req.Do()
 
 	if err != nil {
