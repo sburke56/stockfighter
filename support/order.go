@@ -1,11 +1,11 @@
-package main
+package support
 
 import (
 	"fmt"
 	"github.com/franela/goreq"
 )
 
-func buy(orderType string, price int, qty int) {
+func Buy(orderType string, price int, qty int, openOrders chan Order) {
 	order := Order{
 		Account:   Cfg.Stockfighter.Account,
 		Venue:     Cfg.Stockfighter.Venue,
@@ -29,6 +29,10 @@ func buy(orderType string, price int, qty int) {
 	if err != nil {
 		fmt.Println(err.Error())
 	} else {
-		fmt.Println(res.Body.ToString())
+		if res.StatusCode == 200 {
+			res.Body.FromJsonTo(&order)
+			fmt.Println(order)
+			openOrders <- order
+		}
 	}
 }

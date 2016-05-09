@@ -1,4 +1,6 @@
-package main
+package support
+
+var Cfg Config
 
 type Config struct {
 	Stockfighter struct {
@@ -10,7 +12,13 @@ type Config struct {
 	}
 }
 
+type Fill struct {
+	Price int
+	Qty int
+}
+
 type Order struct {
+	Id int
 	Account   string
 	Venue     string
 	Symbol    string
@@ -18,6 +26,25 @@ type Order struct {
 	Qty       int
 	Direction string
 	OrderType string
+	Fills []Fill
+	Open bool
+	TotalFilled int
+}
+
+type Status struct {
+	Direction string
+	OriginalQty int
+	Qty int
+	Price int
+	OrderType string
+	Id int
+	Fills []Fill
+	TotalFilled int
+	Open bool
+}
+
+type AllOrders struct {
+	Orders []Order
 }
 
 type Quote struct {
