@@ -1,7 +1,7 @@
 package main
 
 import (
-//	"flag"
+	"flag"
 	"fmt"
 	"gopkg.in/sconf/ini.v0"
 	"gopkg.in/sconf/sconf.v0"
@@ -10,61 +10,86 @@ import (
 	"sync/atomic"
 )
 
-func updateStats(direction string, totalFilled int,  fills []support.Fill, cash *int64, position *uint64) {
-	if direction == "buy" {
-		pos := atomic.AddUint64(position, uint64(totalFilled))
-		fmt.Printf("position: %v\n", pos)
-
-		value, _ := totalFills(fills)
-		n := atomic.AddInt64(cash, int64(value*-1))
-		fmt.Printf("cash: %v\n", n)
-	} else {
-		pos := atomic.AddUint64(position, ^uint64(totalFilled-1))
-		fmt.Printf("position: %v\n", pos)
-
-		value, _ := totalFills(fills)
-		n := atomic.AddInt64(cash, int64(value))
-		fmt.Printf("cash: %v\n", n)
-	}
-}
-
-func orderStatus(openOrders chan support.Order, cash *int64, position *uint64) {
-	for {
-		select {
-		case o := <-openOrders:
-			status, err := support.GetStatus(o.Id)
-			if err == nil {
-				if !status.Open {
-					fmt.Printf("order id:%v closed\n", o.Id)
-					fmt.Println(status.Fills)
-
-					updateStats(o.Direction, status.TotalFilled,  status.Fills, cash, position)
-
-				} else {
-					//fmt.Printf("order not closed; putting order back on channel")
-					openOrders <- o
-				}
-			}
-		default:
-			time.Sleep(300 * time.Millisecond)
-		}
-	}
-}
-
-func totalFills(fills []support.Fill) (total int, totalFilled int){
+func totalFills(fills []support.Fill) (total int){
 	for _, f := range fills {
 		total += f.Price*f.Qty
-		totalFilled += f.Qty
 	}
 
-	return total, totalFilled
+	return total
 }
 
-func tallyExistingOrders(allOrders support.AllOrders, cash *int64, position *uint64) {
+func tallyExistingOrders(allOrders support.AllOrders, cash *int64, position *int64) {
+	var position_ int64
+	var cash_ int64
+
 	for _, o := range allOrders.Orders {
-		if !o.Open {
-			updateStats(o.Direction, o.TotalFilled,  o.Fills, cash, position)
+		if !o.Open { // order is closed
+			if o.Direction == "buy" {
+				position_ += o.TotalFilled
+				cash_ -= int64(totalFills(o.Fills))
+			} else {
+				position_ -= o.TotalFilled
+				cash_ += int64(totalFills(o.Fills))
+			}
 		}
+	}
+
+	// store the cash & position values
+	atomic.StoreInt64(cash, cash_)
+	atomic.StoreInt64(position, position_)
+}
+
+func updateNav(pos *int64, cash *int64, nav *int64, done chan bool) {
+	for {
+		quote, _ := support.GetQuote()
+
+		// get position * last value
+		p := atomic.LoadInt64(pos)
+		currentValue := p * quote.Last
+
+		c := atomic.LoadInt64(cash)
+		n := currentValue + c
+
+		fmt.Printf("cash: %v  pos: %v  nav: %v\n", c, p, n)
+		atomic.StoreInt64(nav, int64(n))
+		time.Sleep(1 * time.Second)
+	}
+
+	done <- true
+}
+
+func getPosition(cash *int64, position *int64) {
+	for {
+		allOrders, err := support.GetStatusForStock()
+		if err == nil {
+			tallyExistingOrders(allOrders, cash, position)
+		}
+
+		time.Sleep(3 * time.Second)
+	}
+}
+
+func buy(pricePt int64, spread int64, openOrders chan support.Order) {
+	for {
+		smallBlock := 5
+		quote, _ := support.GetQuote()
+
+		if (((pricePt - spread) < quote.Last) && (quote.Last < pricePt)) {
+			support.Buy("limit", quote.Last, smallBlock, openOrders)
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
+}
+
+func sell(pricePt int64, spread int64, openOrders chan support.Order) {
+	for {
+		smallBlock := 5
+		quote, _ := support.GetQuote()
+
+		if ((pricePt < quote.Last) && (quote.Last < (pricePt + spread))) {
+			support.Sell("limit", quote.Last, smallBlock, openOrders)
+		}
+		time.Sleep(300 * time.Millisecond)
 	}
 }
 
@@ -76,26 +101,22 @@ func main() {
 	fmt.Println(support.Cfg.Stockfighter.Symbol)
 	fmt.Println(support.Cfg.Stockfighter.BaseUrl)
 
-	//lowPrice := flag.Int("low", 0, "price to prime engine with")
-	//flag.Parse()
+	pricePt := flag.Int64("price", 0, "price point to start at")
+	spread := flag.Int64("spread", 0, "spread to buy/sell at")
+	flag.Parse()
 
 	var cash int64
-	var position uint64
+	var position int64
+	var nav int64
 
-	//smallBlock := 5
+	openOrders := make(chan support.Order, 100)
+	done := make(chan bool)
 
-	//openOrders := make(chan support.Order, 100)
+	go getPosition(&cash, &position)
+	go updateNav(&position, &cash, &nav, done)
 
-	allOrders, err := support.GetStatusForStock()
-	if err == nil {
-		tallyExistingOrders(allOrders, &cash, &position)
-	}
+	go buy(*pricePt, *spread, openOrders)
+	go sell(*pricePt, *spread, openOrders)
 
-
-	//go orderStatus(openOrders, &cash, &position)
-	//
-	//for i:=0; i<1; i++ {
-	//	support.Buy("limit", *lowPrice, smallBlock, openOrders)
-	//	time.Sleep(3 * time.Second)
-	//}
+	<- done
 }

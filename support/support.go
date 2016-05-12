@@ -22,13 +22,13 @@ type Order struct {
 	Account   string
 	Venue     string
 	Symbol    string
-	Price     int
+	Price     int64
 	Qty       int
 	Direction string
 	OrderType string
 	Fills []Fill
 	Open bool
-	TotalFilled int
+	TotalFilled int64
 }
 
 type Status struct {
@@ -49,6 +49,7 @@ type AllOrders struct {
 
 type Quote struct {
 	Ask int
+	Last int64
 }
 
 type BidAsk struct {

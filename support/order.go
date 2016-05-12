@@ -5,14 +5,22 @@ import (
 	"github.com/franela/goreq"
 )
 
-func Buy(orderType string, price int, qty int, openOrders chan Order) {
+func Buy(orderType string, price int64, qty int, openOrders chan Order) {
+	order(orderType, "buy", price, qty, openOrders)
+}
+
+func Sell(orderType string, price int64, qty int, openOrders chan Order) {
+	order(orderType, "sell", price, qty, openOrders)
+}
+
+func order(orderType string, direction string, price int64, qty int, openOrders chan Order) {
 	order := Order{
 		Account:   Cfg.Stockfighter.Account,
 		Venue:     Cfg.Stockfighter.Venue,
 		Symbol:    Cfg.Stockfighter.Symbol,
 		Price:     price,
 		Qty:       qty,
-		Direction: "buy",
+		Direction: direction,
 		OrderType: orderType,
 	}
 

@@ -5,8 +5,11 @@ import (
 	"github.com/franela/goreq"
 )
 
-func GetQuote(venue string, stock string) (quote Quote, err error) {
-	uri := fmt.Sprintf("%s/venues/%s/stocks/%s/quote", Cfg.Stockfighter.BaseUrl, Cfg.Stockfighter.Venue, Cfg.Stockfighter.Symbol)
+func GetQuote() (quote Quote, err error) {
+	uri := fmt.Sprintf("%s/venues/%s/stocks/%s/quote",
+		Cfg.Stockfighter.BaseUrl,
+		Cfg.Stockfighter.Venue,
+		Cfg.Stockfighter.Symbol)
 	req := goreq.Request{Uri: uri}
 	req.AddHeader("X-Starfighter-Authorization", Cfg.Stockfighter.ApiKey)
 
